@@ -12,7 +12,7 @@ class PDF_reader:
         pages_data = {}
         for pg in range(doc.page_count):
             page = doc.load_page(pg)
-            rotate = int(0)
+            rotate = int(180)
             zoom = int(zoom)
             mat = fitz.Matrix(zoom/100.0, zoom/100.0).prerotate(rotate)
             pix = page.get_pixmap(matrix=mat, alpha=False)

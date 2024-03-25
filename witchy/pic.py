@@ -65,4 +65,3 @@ class Image_Convert:
         image = Image.open(BytesIO(data))
         return image
     
-    
