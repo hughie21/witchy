@@ -8,6 +8,7 @@ from win32file import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
 from pywintypes import Time
 from .pic import Image_Convert, Image
 from .doc import PDF_Convert, BytesIO
+from .media import Media_Convert
 from .error import *
 
 ERROR_MSG = ""
@@ -114,7 +115,13 @@ class File:
                 raise FileNotFoundError("File not found")
             self.open(path)
     
-    def __merge(self, file):
+    def __merge(self, file:tuple):
+        '''
+        merge the picture to the PDF
+
+        :params file: the File class object
+        :return: the fitz document object
+        '''
         if len(file) == 0:
             raise Exception("No images to merge")
         binset = [BytesIO(self.bdata.hex)]
@@ -125,7 +132,7 @@ class File:
         doc = PDF_Convert.merge_pic(binset)
         return doc
     
-    def __image_convert(self, to:str, format:str, quality:int, size:tuple, file)->None:
+    def __image_convert(self, to:str, format:str, quality:int, size:tuple, file:tuple)->None:
         if format == "JPEG" or format == "JPG":
             cimage = Image_Convert.convert_to_damaged_images(self.bdata.hex, quality)
             cimage.save(to, format="jpg")
@@ -147,6 +154,9 @@ class File:
         elif format == "PDF":
             doc = self.__merge(file)
             doc.save(to)
+        else:
+            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
+            raise UnSupportFormatException(ERROR_MSG)
 
     def __doc_convert(self, to:str, format:str)->None:
         if format == "PIC":
@@ -161,16 +171,61 @@ class File:
             text = PDF_Convert.to_text(self.bdata.hex)
             with open(f"{to}", "w+", encoding="utf-8") as f:
                 f.write(text)
-                
+        else:
+            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
+            raise UnSupportFormatException(ERROR_MSG)
+        
+    def __video_convert(self, to, format):
+        if format == "MP3":
+            Media_Convert.to_audio(self.path, to,"mp3")
+        elif format == "TS":
+            Media_Convert.to_vedio(self.path, to, "ts")
+        elif format == "MP4":
+            Media_Convert.to_vedio(self.path, to, "mp4")
+        elif format == "FLV":
+            Media_Convert.to_vedio(self.path, to, "flv")
+        else:
+            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
+            raise UnSupportFormatException(ERROR_MSG)
 
-    def convert(self, to:str, format:str, quality:int = 100, size=(64,64), file=())->str:
+    def __audio_convert(self, to, format):
+        if format == "MP3":
+            Media_Convert.to_audio(self.path, to, "mp3")
+        if format == "WAV":
+            Media_Convert.to_audio(self.path, to, "wav")
+        else:
+            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
+            raise UnSupportFormatException(ERROR_MSG)
+
+    def convert(self, to:str, format:str, quality:int = 100, size=(64,64), file=()):
+        '''
+        the convert function that based the file type
+
+        :params to: the output path
+        :params format: the format that convert
+        :params quality: when choosing the JPG format (damaged imaged) that the quality of the image
+        :params size: when choosing the ICO format that the size of the image 
+        :params file: when choosing the PDF format and the format of the file is image that the rest of the image
+        '''
         format = format.upper()
         if self.info["type"] in IMAGE_TYPE:
             self.__image_convert(to, format, quality, size, file)
         elif self.info["type"] in DOC_TYPE:
             self.__doc_convert(to, format)
+        elif self.info["type"] in VIDEO_TYPE:
+            self.__video_convert(to, format)
+        elif self.info["type"] in AUDIO_TYPE:
+            self.__audio_convert(to, format)
+        else:
+            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
+            raise UnSupportFormatException(ERROR_MSG)
 
-    def __checkMagic(self):
+    def __checkMagic(self)->str:
+        '''
+        based on the magic number to identify the type of the file
+
+        :return: file type
+        '''
         b:str = self.bdata[:28].hex().upper()
         for k,v in magic.items():
             for i in range(0, len(b)-len(v)):
@@ -180,6 +235,11 @@ class File:
             return "Unknown"
     
     def append(self, data:Any)->None:
+        '''
+        append the binary data on the tail of the file
+
+        :params data: the data that could be File class or sting like type
+        '''
         if isinstance(data, bytes):
             self.bdata.hex = self.bdata.hex + data
         elif isinstance(data, Hex):
@@ -188,6 +248,11 @@ class File:
             self.bdata.hex = self.bdata.hex + bytes(data, "UTF-8")
     
     def save(self, path:str)->None:
+        '''
+        save as another file
+
+        :params path: the output path
+        '''
         with open(path, "wb") as f:
             f.write(self.bdata.hex)
         fh = CreateFile(path, GENERIC_READ | GENERIC_WRITE, 0, None, OPEN_EXISTING, 0, 0)
