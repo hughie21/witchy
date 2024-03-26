@@ -7,4 +7,6 @@ test.*
 
 dist
 
+build
+
 **.egg-info
