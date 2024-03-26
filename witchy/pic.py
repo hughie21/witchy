@@ -1,4 +1,3 @@
-from typing import Union
 from IC.base import ImageBase
 from PIL import Image
 from io import BytesIO

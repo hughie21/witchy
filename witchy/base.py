@@ -6,10 +6,11 @@ from .magic import magic
 from win32file import CreateFile, SetFileTime, GetFileTime, CloseHandle
 from win32file import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
 from pywintypes import Time
-from .pic import Image_Convert, Image
+from .pic import Image_Convert
 from .doc import PDF_Convert, BytesIO
 from .media import Media_Convert
 from .error import *
+from IC.main import Image_compressor
 
 ERROR_MSG = ""
 
@@ -97,16 +98,16 @@ class File:
 
     ## example::
     ### basic function
-    >>> f = File("test.jpg")
+    >>> f = File("path/your/file")
     >>> print(f) # show the detail information of the file
     >>> print(f("size")) # get the attribute of the file
     >>> f["ctime"] = "2024-01-01 00:00:00" # change the attribute
-    >>> f.append(b"test") # append the binary data on the tail
-    >>> f.save("test-1.jpg") # save as another file
+    >>> f.append(b"your data") # append the binary data on the tail
+    >>> f.save("path/tour/file") # save as another file
 
     ### convert function
-    >>> f = File("test.jpg")
-    >>> f.convert("test.png", "PNG") # convert to another format
+    >>> f = File("your.jpg")
+    >>> f.convert("output.png", "PNG") # convert to another format
     """
     def __init__(self, path:str=None) -> None:
         self.info = {}
@@ -213,8 +214,14 @@ class File:
         elif self.info["type"] in DOC_TYPE:
             self.__doc_convert(to, format)
         elif self.info["type"] in VIDEO_TYPE:
+            if not Media_Convert.check_environment():
+                ERROR_MSG = "FFmpeg is not installed, please check the https://ffmpeg.org/"
+                raise EnvironemtError(ERROR_MSG)
             self.__video_convert(to, format)
         elif self.info["type"] in AUDIO_TYPE:
+            if not Media_Convert.check_environment():
+                ERROR_MSG = "FFmpeg is not installed, please check the https://ffmpeg.org/"
+                raise EnvironemtError(ERROR_MSG)
             self.__audio_convert(to, format)
         else:
             ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"

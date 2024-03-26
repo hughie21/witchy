@@ -1,14 +1,10 @@
-from PC.main import PDF_reader
 from io import BytesIO
-from PIL import Image
-import pandas as pd
 import fitz
-import numpy as np
 import docx
 
-class PDF(PDF_reader):
+class PDF:
     def __init__(self) -> None:
-        super().__init__()
+        self.reader = fitz
     
     def read_pdf(self, stream:bytes, zoom:int = 100) -> dict:
         doc = self.reader.Document(stream=stream, filetype="pdf")

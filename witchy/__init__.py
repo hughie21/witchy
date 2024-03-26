@@ -9,3 +9,4 @@ It also provide some method to convert the file into another format.
 >>> f = File("test.exe")
 """
 from .base import File
+from .base import Image_compressor
