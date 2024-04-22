@@ -127,6 +127,6 @@ SLY = "53520100"
 local = locals()
 keys = local.keys()
 magic = {}
-k = list(keys)[9:-3]
+k = list(keys)[8:-3]
 for i in k:
     magic[i] = local[i]

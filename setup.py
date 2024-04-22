@@ -10,6 +10,7 @@ setuptools.setup(
     author_email="18028012455@163.com",
     description="this is a file tool for python",
     long_description=long_description,
+    long_description_content_type ="text/markdown",
     packages=setuptools.find_packages(),
     url="https://github.com/hughie21/witchy",
     classifiers=[

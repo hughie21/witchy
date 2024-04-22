@@ -9,4 +9,8 @@ dist
 
 build
 
+logs
+
+.pypirc
+
 **.egg-info

@@ -6,11 +6,8 @@ from .magic import magic
 from win32file import CreateFile, SetFileTime, GetFileTime, CloseHandle
 from win32file import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
 from pywintypes import Time
-from .pic import Image_Convert
-from .doc import PDF_Convert, BytesIO
-from .media import Media_Convert
 from .error import *
-from IC.main import Image_compressor
+from hashlib import md5
 
 ERROR_MSG = ""
 
@@ -115,117 +112,9 @@ class File:
             if os.path.exists(path) == False:
                 raise FileNotFoundError("File not found")
             self.open(path)
-    
-    def __merge(self, file:tuple):
-        '''
-        merge the picture to the PDF
 
-        :params file: the File class object
-        :return: the fitz document object
-        '''
-        if len(file) == 0:
-            raise Exception("No images to merge")
-        binset = [BytesIO(self.bdata.hex)]
-        for f in file:
-            if f.info["type"] not in IMAGE_TYPE:
-                raise TypeError(f"{f.path} is not a image file")
-            binset.append(BytesIO(f.bdata.hex))
-        doc = PDF_Convert.merge_pic(binset)
-        return doc
-    
-    def __image_convert(self, to:str, format:str, quality:int, size:tuple, file:tuple)->None:
-        if format == "JPEG" or format == "JPG":
-            cimage = Image_Convert.convert_to_damaged_images(self.bdata.hex, quality)
-            cimage.save(to, format="jpg")
-        elif format == "PNG":
-            cimage = Image_Convert.convert_to_lossless_images(self.bdata.hex)
-            cimage.save(to, format="png")
-        elif format == "BMP":
-            cimage = Image_Convert.convert_to_lossless_images(self.bdata.hex)
-            cimage.save(to, format="bmp")
-        elif format == "GIF":
-            cimage = Image_Convert.convert_to_lossless_images(self.bdata.hex)
-            cimage.save(to, format="gif")
-        elif format == "ICO":
-            icon_sizes = [(16, 16), (32, 32), (48, 48), (64, 64)]
-            if size not in icon_sizes:
-                raise ValueError(f"Invalid icon size. the image size must include {icon_sizes}")
-            cimage = Image_Convert.convert_to_lossless_images(self.bdata.hex)
-            cimage.save(to, format="ico", size=size)
-        elif format == "PDF":
-            doc = self.__merge(file)
-            doc.save(to)
-        else:
-            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
-            raise UnSupportFormatException(ERROR_MSG)
-
-    def __doc_convert(self, to:str, format:str)->None:
-        if format == "PIC":
-            image_data = PDF_Convert.to_image(self.bdata.hex)
-            name,suffix = os.path.splitext(to)
-            for k,v in image_data.items():
-                v.save(f"{name}-{k}.{suffix}")
-        elif format == "DOC":
-            word = PDF_Convert.to_doc(self.bdata.hex)
-            word.save(to)
-        elif format == "TXT":
-            text = PDF_Convert.to_text(self.bdata.hex)
-            with open(f"{to}", "w+", encoding="utf-8") as f:
-                f.write(text)
-        else:
-            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
-            raise UnSupportFormatException(ERROR_MSG)
-        
-    def __video_convert(self, to, format):
-        if format == "MP3":
-            Media_Convert.to_audio(self.path, to,"mp3")
-        elif format == "TS":
-            Media_Convert.to_vedio(self.path, to, "ts")
-        elif format == "MP4":
-            Media_Convert.to_vedio(self.path, to, "mp4")
-        elif format == "FLV":
-            Media_Convert.to_vedio(self.path, to, "flv")
-        else:
-            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
-            raise UnSupportFormatException(ERROR_MSG)
-
-    def __audio_convert(self, to, format):
-        if format == "MP3":
-            Media_Convert.to_audio(self.path, to, "mp3")
-        if format == "WAV":
-            Media_Convert.to_audio(self.path, to, "wav")
-        else:
-            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
-            raise UnSupportFormatException(ERROR_MSG)
-
-    def convert(self, to:str, format:str, quality:int = 100, size=(64,64), file=()):
-        '''
-        the convert function that based the file type
-
-        :params to: the output path
-        :params format: the format that convert
-        :params quality: when choosing the JPG format (damaged imaged) that the quality of the image
-        :params size: when choosing the ICO format that the size of the image 
-        :params file: when choosing the PDF format and the format of the file is image that the rest of the image
-        '''
-        format = format.upper()
-        if self.info["type"] in IMAGE_TYPE:
-            self.__image_convert(to, format, quality, size, file)
-        elif self.info["type"] in DOC_TYPE:
-            self.__doc_convert(to, format)
-        elif self.info["type"] in VIDEO_TYPE:
-            if not Media_Convert.check_environment():
-                ERROR_MSG = "FFmpeg is not installed, please check the https://ffmpeg.org/"
-                raise EnvironemtError(ERROR_MSG)
-            self.__video_convert(to, format)
-        elif self.info["type"] in AUDIO_TYPE:
-            if not Media_Convert.check_environment():
-                ERROR_MSG = "FFmpeg is not installed, please check the https://ffmpeg.org/"
-                raise EnvironemtError(ERROR_MSG)
-            self.__audio_convert(to, format)
-        else:
-            ERROR_MSG = f"{self.info['type']} is not supported to convert into {format}"
-            raise UnSupportFormatException(ERROR_MSG)
+    def find(self, target:str|bytes):
+        pass
 
     def __checkMagic(self)->str:
         '''
@@ -235,9 +124,8 @@ class File:
         '''
         b:str = self.bdata[:28].hex().upper()
         for k,v in magic.items():
-            for i in range(0, len(b)-len(v)):
-                if b[i:i+len(v)] == v:
-                    return k
+            if v in b:
+                return k
         else:
             return "Unknown"
     
@@ -326,14 +214,22 @@ class File:
             return self.bdata
         elif args == "path":
             return os.path.abspath(self.path)
+        elif args == "type":
+            return self.info["type"]
         else:
-            possible = tips(args,["uid", "gid", "size", "atime", "ctime", "mtime", "data", "path"])
+            possible = tips(args,["uid", "gid", "size", "atime", "ctime", "mtime", "data", "path", "type"])
             if possible == 0:
                 ERROR_MSG = f"invalid argument '{args}', pleace check the document"
                 raise KeyErrorException(ERROR_MSG)
             ERROR_MSG = f"invalid argument '{args}'. Do you mean '{possible}'?"
             raise KeyErrorException(ERROR_MSG)
     
+    def __eq__(self, value: object) -> bool:
+        if md5(self.bdata.hex) == md5(value.bdata.hex):
+            return True
+        else:
+            return False
+
     def __str__(self) -> str:
         return f"File:(path: {os.path.abspath(self.path)}, type: {self.info['type']}, uid: {self.info['st_uid']}, gid: {self.info['st_gid']}, size: {self.info['size']}, atime: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.info['atime']))}, mtime: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.info['mtime']))},  ctime: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.info['ctime']))}, bin_data: {str(self.bdata)})"
 
