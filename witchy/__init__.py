@@ -8,4 +8,4 @@ It also provide some method to convert the file into another format.
 >>> from witchy import File
 >>> f = File("test.exe")
 """
-from .base import File
+from .main import File

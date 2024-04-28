@@ -43,3 +43,10 @@ wm = wm.extract(filename='output.png', wm_shape=wm_shape, mode='text')
 print(wm) # hello world
 ```
 
+# Effect
+
+|method|picture|hidden content|
+| ---- | -----|------ |
+|LSB|![daw](/doc/lsb_txt.png)|This is a secret message, you can't see it, right?|
+|LSB|![daw](/doc/lsb_img.png)|![hidden](/doc/1.jpg)|
+|DCT|![daw](/doc/dct_txt.png)|This is a secret message, you can't see it, right?|

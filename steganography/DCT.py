@@ -259,14 +259,15 @@ class DCT(Steganorgraphy):
 
     def __dct_wm(self, content, mode):
         if mode == 'img':
-            _ = np.frombuffer(hex2bin(content.bdata.hex), np.uint8)
+            _ = np.frombuffer(content.bdata.hex, np.uint8)
             wm = cv2.imdecode(_, cv2.IMREAD_GRAYSCALE)
-            # wm = cv2.imread(filename=content, flags=cv2.IMREAD_GRAYSCALE)
+            self.bwm_core.log.info(f'Embed {wm.shape[:2]} image into image size: {self.bwm_core.img_shape}')
             assert wm is not None, 'file "{filename}" not read'.format(filename=content)
             self.wm_bit = wm.flatten() > 128
         elif mode == 'text':
             byte = bin(int(content.encode('utf-8').hex(), base=16))[2:]
             self.wm_bit = (np.array(list(byte)) == '1')
+            self.bwm_core.log.info(f'Embed {len(byte)} bits into image size: {self.bwm_core.img_shape}')
         self.wm_size = self.wm_bit.size
         np.random.RandomState(self.password_wm).shuffle(self.wm_bit)
         self.bwm_core.read_wm(self.wm_bit)
@@ -289,7 +290,6 @@ class DCT(Steganorgraphy):
         assert file is not None, "file must be not None"
         self.load(file=file)
         self.read_wm(wm, mode)
-        self.log.info(f'Embed {self.wm_size} bits into image size: {self.bwm_core.img_shape}')
         embed_img = self.bwm_core.embed()
         cv2.imwrite(filename=out_name, img=embed_img)
         return embed_img
@@ -322,7 +322,7 @@ class DCT(Steganorgraphy):
             embed_img = cv2.imdecode(_, cv2.IMREAD_COLOR)
 
         self.wm_size = np.array(wm_shape).prod()
-        self.log.info(message=f'Extract {wm_shape} bits from image size: {embed_img.shape[:2]}')
+        self.bwm_core.log.info(message=f'Extract {wm_shape} bits from image size: {embed_img.shape[:2]}')
         if mode in ('text', 'bit'):
             wm_avg = self.bwm_core.extract_with_kmeans(img=embed_img, wm_shape=wm_shape)
         else:
@@ -330,12 +330,12 @@ class DCT(Steganorgraphy):
         wm = self.extract_decrypt(wm_avg=wm_avg)
         if mode == 'img':
             wm = 255 * wm.reshape(wm_shape[0], wm_shape[1])
-            self.log.info(message=f'The watermark extracted is: {out_wm_name}')
+            self.bwm_core.log.info(message=f'The watermark extracted is: {out_wm_name}')
             cv2.imwrite(out_wm_name, wm)
         elif mode == 'text':
             byte = ''.join(str((i >= 0.5) * 1) for i in wm)
             wm = bytes.fromhex(hex(int(byte, base=2))[2:]).decode('utf-8', errors='replace')
-            self.log.info(message=f'The watermark extracted is: {wm}')
+            self.bwm_core.log.info(message=f'The watermark extracted is: {wm}')
         return wm
             
 

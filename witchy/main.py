@@ -101,10 +101,6 @@ class File:
     >>> f["ctime"] = "2024-01-01 00:00:00" # change the attribute
     >>> f.append(b"your data") # append the binary data on the tail
     >>> f.save("path/tour/file") # save as another file
-
-    ### convert function
-    >>> f = File("your.jpg")
-    >>> f.convert("output.png", "PNG") # convert to another format
     """
     def __init__(self, path:str=None) -> None:
         self.info = {}

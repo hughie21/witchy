@@ -1,8 +1,10 @@
+import struct
 from typing import overload
 from PIL import Image
 import re
 from .util import *
 from .pool import AutoPool
+import numpy as np
 from .base import *
 from .logging import Log
 
@@ -32,50 +34,43 @@ class LSB(Steganorgraphy):
         self.log = Log('LSB')
         self.log.info(f"The hidden information will offset {lag} bit")
         self.lag = lag
-    
-    def repLstBit(self,source,target):
-        replace_reg = re.compile(r'[1|0]$')
-        return replace_reg.sub(target,source)
-    
-    def getLstBit(self, image:object, length:int)->str:
-        width, height = image.size
-        lstBit = ""
-        count = 0
-        for i in range(self.lag, width):
-            for j in range(self.lag, height):
-                if count == length:
-                    break
-                pixel = list(image.getpixel((i, j)))
-                for i in range(3):
-                    if count == length:
-                        break
-                    sourceBit = bin(pixel[i])[2:]
-                    lstBit += sourceBit[-1]
-                    count += 1
-        return lstBit
 
-    def __hide(self, image, hideBitArr):
-        width, height = image.size
-        self.log.info(message=f'Embed {len(hideBitArr)} bits into image size: ({width},{height})')
-        count = 0
-        if len(hideBitArr) > width * height:
-            self.log.warning(message=f'{len(hideBitArr)} bits over match the maximum size: ({width * height})')
-            raise OutOfRangeError("Content is too long to be hidden")
+    def getLstBit(self,source):
+        return bin(source)[-1]
+
+    def __extract(self, image:object, length:int)->list:
+        image = np.array(image)
+        width, height = image.shape[:2]
+        index = 0
+        lstBit = []
         for i in range(self.lag, width):
             for j in range(self.lag, height):
-                pixel = list(image.getpixel((i, j)))
-                if count == len(hideBitArr):
-                    break
-                for i in range(3):
-                    if count == len(hideBitArr):
-                        break
-                    RsourceBit = bin(pixel[i])[2:]
-                    rspBit = int(self.repLstBit(RsourceBit,hideBitArr[count]),2)
-                    pixel[i] = rspBit
-                    count += 1
-                image.putpixel((i,j),tuple(pixel))
-        self.image = image
-    
+                for chanel in range(3):
+                    if index >= length:
+                        return "".join(lstBit)
+                    lstBit.append(self.getLstBit(image[i,j,chanel]))
+                    index += 1
+
+    def __hide(self, image:object, bits:str):
+        a1 = 1
+        a2 = -1
+        length = len(bits)
+        index = 0
+        image = np.array(image)
+        width, height = image.shape[:2]
+        for i in range(self.lag, width):
+            for j in range(self.lag, height):
+                for chanel in range(3):
+                    if index >= length:
+                        return image
+                    if self.getLstBit(image[i,j,chanel]) == bits[index]:
+                        image[i,j,chanel] &= a2 # just to keep the style unchanged
+                        index += 1
+                    else:
+                        image[i,j,chanel] ^= a1 # when the least bit is different, reversal it
+                        index += 1
+
+
     def embed(self, file=None, wm=None, mode='img', out_name=None):
         '''
         embed the hidden information to the target image
@@ -93,12 +88,13 @@ class LSB(Steganorgraphy):
             hideBitArr = bin(int(wm.bdata[:].hex(), 16))[2:]
         elif mode == 'text':
             hideBitArr = encode(wm)
-        self.__hide(image, hideBitArr)
+        self.log.info(message=f'embed {len(hideBitArr)} bits into image size: ({image.size[0]}, {image.size[1]})')
+        embed_image = Image.fromarray(self.__hide(image ,hideBitArr))
         if out_name is None:
-            return self.image
+            return embed_image
         else:
             self.log.info(message=f'The embed image is located in: {out_name}')
-            self.image.save(out_name, 'PNG')
+            embed_image.save(out_name, 'PNG')
     
     def extract(self, filename=None, embed_img=None, wm_shape=None, out_wm_name=None, mode='img'):
         '''
@@ -111,22 +107,22 @@ class LSB(Steganorgraphy):
         :params mode: the mode of the watermark, 'img' or 'text'
         :return: if the mode is 'text' return the string form of the watermark, otherwise return none
         '''
-        assert embed_img is not None or filename is not None, 'filename or embed_img must be provided'
-        assert mode in ['img', 'text'], 'Mode must be either "img" or "text"'
-        assert wm_shape is not None, 'wm_shape must be provided'
-        if not os.path.exists(filename):
-            self.log.error(message=f'{filename} does not exist')
-            raise FileNotFoundError("File does not exist")
         def toPic(bits:str)->Image.Image:
             bits = int(bits,2).to_bytes((len(bits)+7)//8, 'big')
             with open(out_wm_name, "wb") as f:
                 f.write(bits)
-        if filename == None:
-            image = Image.open(hex2bin(embed_img.bdata.hex))
-        else:
+        assert embed_img is not None or filename is not None, 'filename or embed_img must be provided'
+        assert mode in ['img', 'text'], 'Mode must be either "img" or "text"'
+        assert wm_shape is not None, 'wm_shape must be provided'
+        if filename is not None:
+            if not os.path.exists(filename):
+                self.log.error(message=f'{filename} does not exist')
+                raise FileNotFoundError("File does not exist")
             image = Image.open(filename)
+        elif filename == None:
+            image = Image.open(hex2bin(embed_img.bdata.hex))
         self.log.info(message=f'Extract {wm_shape} bits from image size: ({image.size[0]}, {image.size[1]})')
-        lstBit = self.getLstBit(image, wm_shape)
+        lstBit = self.__extract(image, wm_shape)
         if mode == "text":
             text = decode(lstBit)
             self.log.info(message=f'The watermark extracted is: {text}')
